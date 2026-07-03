@@ -90,3 +90,42 @@ app.get('/api/health', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Google OAuth Endpoint
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const { email, name, picture } = req.body;
+    
+    // Check if user exists
+    let user = await User.findOne({ email });
+    
+    if (!user) {
+      // Create new user from Google data
+      const randomPassword = Math.random().toString(36).slice(-16);
+      user = await User.create({
+        name: name || email.split('@')[0],
+        email,
+        avatar: picture || '',
+        password: randomPassword,
+        plan: 'free',
+      });
+    }
+    
+    // Generate JWT
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: '7d'
+    });
+    
+    res.json({
+      success: true,
+      token: token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
